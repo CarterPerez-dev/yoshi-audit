@@ -10,7 +10,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/CarterPerez-dev/yoshi-audit/internal/config"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dashboard"
+	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dockertab"
 )
 
 type Tab int
@@ -29,12 +31,17 @@ type App struct {
 	height    int
 	paused    bool
 	dashboard dashboard.Dashboard
+	dockerTab dockertab.DockerTab
+	cfg       config.Config
 }
 
 func NewApp() App {
+	cfg, _ := config.Load(config.DefaultPath())
 	return App{
 		activeTab: TabDashboard,
 		dashboard: dashboard.NewDashboard(),
+		dockerTab: dockertab.NewDockerTab(cfg),
+		cfg:       cfg,
 	}
 }
 
@@ -45,7 +52,10 @@ func doTick() tea.Cmd {
 }
 
 func (a App) Init() tea.Cmd {
-	return tea.Batch(doTick(), dashboard.FetchStats)
+	cfg := a.cfg
+	return tea.Batch(doTick(), dashboard.FetchStats, func() tea.Msg {
+		return dockertab.FetchDockerData(cfg)
+	})
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -55,7 +65,30 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.height = msg.Height
 	case dashboard.StatsMsg:
 		a.dashboard, _ = a.dashboard.Update(msg)
+	case dockertab.DockerDataMsg:
+		a.dockerTab, _ = a.dockerTab.Update(msg)
+	case dockertab.DeleteResultMsg:
+		var cmd tea.Cmd
+		a.dockerTab, cmd = a.dockerTab.Update(msg)
+		return a, cmd
 	case tea.KeyMsg:
+		if a.activeTab == TabDocker {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				return a, tea.Quit
+			case "tab":
+				a.activeTab = (a.activeTab + 1) % 3
+			case "r":
+				cfg := a.cfg
+				return a, func() tea.Msg { return dockertab.FetchDockerData(cfg) }
+			default:
+				var cmd tea.Cmd
+				a.dockerTab, cmd = a.dockerTab.Update(msg)
+				return a, cmd
+			}
+			return a, nil
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return a, tea.Quit
@@ -131,7 +164,7 @@ func (a App) renderContent() string {
 	case TabDashboard:
 		return a.dashboard.View(a.width-4, a.height-6)
 	case TabDocker:
-		return "Docker Prune Manager - TODO"
+		return a.dockerTab.View(a.width-4, a.height-6)
 	case TabAudit:
 		return "System Audit - TODO"
 	default:
