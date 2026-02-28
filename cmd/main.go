@@ -8,28 +8,12 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	ui "github.com/CarterPerez-dev/yoshi-audit/internal/ui"
 )
 
-type model struct{}
-
-func (m model) Init() tea.Cmd { return nil }
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
-	}
-	return m, nil
-}
-
-func (m model) View() string {
-	return "yoshi-audit v0.1.0\n\nPress q to quit.\n"
-}
-
 func main() {
-	p := tea.NewProgram(model{}, tea.WithAltScreen())
+	app := ui.NewApp()
+	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
