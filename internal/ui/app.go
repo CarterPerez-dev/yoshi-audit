@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/CarterPerez-dev/yoshi-audit/internal/config"
+	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/audittab"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dashboard"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dockertab"
 )
@@ -32,6 +33,7 @@ type App struct {
 	paused    bool
 	dashboard dashboard.Dashboard
 	dockerTab dockertab.DockerTab
+	auditTab  audittab.AuditTab
 	cfg       config.Config
 }
 
@@ -41,6 +43,7 @@ func NewApp() App {
 		activeTab: TabDashboard,
 		dashboard: dashboard.NewDashboard(),
 		dockerTab: dockertab.NewDockerTab(cfg),
+		auditTab:  audittab.NewAuditTab(),
 		cfg:       cfg,
 	}
 }
@@ -53,8 +56,12 @@ func doTick() tea.Cmd {
 
 func (a App) Init() tea.Cmd {
 	cfg := a.cfg
+	auditScanner := a.auditTab.Scanner()
+	auditRSS := a.auditTab.RSSHistory()
 	return tea.Batch(doTick(), dashboard.FetchStats, func() tea.Msg {
 		return dockertab.FetchDockerData(cfg)
+	}, func() tea.Msg {
+		return audittab.FetchAuditData(auditScanner, auditRSS)
 	})
 }
 
@@ -67,6 +74,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dashboard, _ = a.dashboard.Update(msg)
 	case dockertab.DockerDataMsg:
 		a.dockerTab, _ = a.dockerTab.Update(msg)
+	case audittab.AuditDataMsg:
+		a.auditTab, _ = a.auditTab.Update(msg)
 	case dockertab.DeleteResultMsg:
 		var cmd tea.Cmd
 		a.dockerTab, cmd = a.dockerTab.Update(msg)
@@ -84,6 +93,20 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				var cmd tea.Cmd
 				a.dockerTab, cmd = a.dockerTab.Update(msg)
+				return a, cmd
+			}
+			return a, nil
+		}
+
+		if a.activeTab == TabAudit {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				return a, tea.Quit
+			case "tab":
+				a.activeTab = (a.activeTab + 1) % 3
+			default:
+				var cmd tea.Cmd
+				a.auditTab, cmd = a.auditTab.Update(msg)
 				return a, cmd
 			}
 			return a, nil
@@ -166,7 +189,7 @@ func (a App) renderContent() string {
 	case TabDocker:
 		return a.dockerTab.View(a.width-4, a.height-6)
 	case TabAudit:
-		return "System Audit - TODO"
+		return a.auditTab.View(a.width-4, a.height-6)
 	default:
 		return "Unknown tab"
 	}
