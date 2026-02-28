@@ -9,6 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dashboard"
 )
 
 type Tab int
@@ -26,10 +28,14 @@ type App struct {
 	width     int
 	height    int
 	paused    bool
+	dashboard dashboard.Dashboard
 }
 
 func NewApp() App {
-	return App{activeTab: TabDashboard}
+	return App{
+		activeTab: TabDashboard,
+		dashboard: dashboard.NewDashboard(),
+	}
 }
 
 func doTick() tea.Cmd {
@@ -39,7 +45,7 @@ func doTick() tea.Cmd {
 }
 
 func (a App) Init() tea.Cmd {
-	return doTick()
+	return tea.Batch(doTick(), dashboard.FetchStats)
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -47,6 +53,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
+	case dashboard.StatsMsg:
+		a.dashboard, _ = a.dashboard.Update(msg)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -61,8 +69,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.activeTab = (a.activeTab + 1) % 3
 		case "p":
 			a.paused = !a.paused
+		case "m", "c", "g", "n":
+			if a.activeTab == TabDashboard {
+				a.dashboard, _ = a.dashboard.Update(msg)
+			}
 		}
 	case TickMsg:
+		if !a.paused {
+			return a, tea.Batch(doTick(), dashboard.FetchStats)
+		}
 		return a, doTick()
 	}
 	return a, nil
@@ -114,7 +129,7 @@ func (a App) renderTabs() string {
 func (a App) renderContent() string {
 	switch a.activeTab {
 	case TabDashboard:
-		return "Dashboard - TODO"
+		return a.dashboard.View(a.width-4, a.height-6)
 	case TabDocker:
 		return "Docker Prune Manager - TODO"
 	case TabAudit:
