@@ -27,24 +27,28 @@ const (
 type TickMsg time.Time
 
 type App struct {
-	activeTab Tab
-	width     int
-	height    int
-	paused    bool
-	dashboard dashboard.Dashboard
-	dockerTab dockertab.DockerTab
-	auditTab  audittab.AuditTab
-	cfg       config.Config
+	activeTab  Tab
+	width      int
+	height     int
+	paused     bool
+	showSplash bool
+	splash     SplashModel
+	dashboard  dashboard.Dashboard
+	dockerTab  dockertab.DockerTab
+	auditTab   audittab.AuditTab
+	cfg        config.Config
 }
 
 func NewApp() App {
 	cfg, _ := config.Load(config.DefaultPath())
 	return App{
-		activeTab: TabDashboard,
-		dashboard: dashboard.NewDashboard(),
-		dockerTab: dockertab.NewDockerTab(cfg),
-		auditTab:  audittab.NewAuditTab(),
-		cfg:       cfg,
+		activeTab:  TabDashboard,
+		showSplash: true,
+		splash:     NewSplash(),
+		dashboard:  dashboard.NewDashboard(),
+		dockerTab:  dockertab.NewDockerTab(cfg),
+		auditTab:   audittab.NewAuditTab(),
+		cfg:        cfg,
 	}
 }
 
@@ -55,6 +59,13 @@ func doTick() tea.Cmd {
 }
 
 func (a App) Init() tea.Cmd {
+	if a.showSplash {
+		return a.splash.Init()
+	}
+	return a.initDataFetches()
+}
+
+func (a App) initDataFetches() tea.Cmd {
 	cfg := a.cfg
 	auditScanner := a.auditTab.Scanner()
 	auditRSS := a.auditTab.RSSHistory()
@@ -66,6 +77,20 @@ func (a App) Init() tea.Cmd {
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.showSplash {
+		if wsm, ok := msg.(tea.WindowSizeMsg); ok {
+			a.width = wsm.Width
+			a.height = wsm.Height
+		}
+		var cmd tea.Cmd
+		a.splash, cmd = a.splash.Update(msg)
+		if a.splash.Done() {
+			a.showSplash = false
+			return a, a.initDataFetches()
+		}
+		return a, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -140,6 +165,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) View() string {
+	if a.showSplash {
+		return a.splash.View()
+	}
+
 	if a.width == 0 {
 		return "Loading..."
 	}
