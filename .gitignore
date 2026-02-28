@@ -3,3 +3,6 @@
 
 # Dev only
 docs/plans/
+
+# Build output
+yoshi-audit
