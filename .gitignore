@@ -1,8 +1,13 @@
 # ©AngelaMos | 2026
 # .gitignore
 
-# Dev only
-docs/plans/
-
 # Build output
+bin/
 yoshi-audit
+
+# Coverage
+coverage.out
+coverage.html
+
+# Audit exports
+yoshi-audit-findings-*.json

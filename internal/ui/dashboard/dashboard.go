@@ -134,7 +134,7 @@ func (d Dashboard) View(width, height int) string {
 		barWidth = 30
 	}
 
-	labelStyle := lipgloss.NewStyle().Foreground(theme.CoinGold).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(theme.MarioBlue).Bold(true)
 
 	b.WriteString(fmt.Sprintf("  %s %s %s\n",
 		labelStyle.Render("CPU "),

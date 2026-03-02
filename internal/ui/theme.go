@@ -10,6 +10,7 @@ import (
 var (
 	YoshiGreen = theme.YoshiGreen
 	PipeGreen  = theme.PipeGreen
+	MarioBlue  = theme.MarioBlue
 	CoinGold   = theme.CoinGold
 	MarioRed   = theme.MarioRed
 	OneUpGreen = theme.OneUpGreen

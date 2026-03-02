@@ -407,8 +407,9 @@ func (dt DockerTab) View(width, height int) string {
 		}
 
 		if len(items) > maxItems {
+			paginationStyle := lipgloss.NewStyle().Foreground(theme.CoinGold)
 			b.WriteString(fmt.Sprintf("\n  %s\n",
-				theme.HelpStyle.Render(fmt.Sprintf("Showing %d-%d of %d items",
+				paginationStyle.Render(fmt.Sprintf("Showing %d-%d of %d items",
 					startIdx+1, endIdx, len(items)))))
 		}
 	}
@@ -622,7 +623,7 @@ func (dt DockerTab) styleForCategory(cat docker.SafetyCategory) lipgloss.Style {
 	case docker.CategorySafe:
 		return lipgloss.NewStyle().Foreground(theme.OneUpGreen)
 	case docker.CategoryProbablySafe:
-		return lipgloss.NewStyle().Foreground(theme.CoinGold)
+		return lipgloss.NewStyle().Foreground(theme.MarioBlue)
 	case docker.CategoryCheckFirst:
 		return lipgloss.NewStyle().Foreground(theme.BrickBrown)
 	case docker.CategoryDoNotTouch:

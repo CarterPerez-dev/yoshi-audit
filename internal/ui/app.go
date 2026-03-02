@@ -101,6 +101,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dockerTab, _ = a.dockerTab.Update(msg)
 	case audittab.AuditDataMsg:
 		a.auditTab, _ = a.auditTab.Update(msg)
+	case audittab.ExportResultMsg:
+		a.auditTab, _ = a.auditTab.Update(msg)
 	case dockertab.DeleteResultMsg:
 		var cmd tea.Cmd
 		a.dockerTab, cmd = a.dockerTab.Update(msg)
@@ -179,7 +181,16 @@ func (a App) View() string {
 
 	body := lipgloss.JoinVertical(lipgloss.Left, tabs, content, status)
 
+	borderColor := PipeGreen
+	switch a.activeTab {
+	case TabDocker:
+		borderColor = MarioBlue
+	case TabAudit:
+		borderColor = MarioRed
+	}
+
 	frame := FrameStyle.
+		BorderForeground(borderColor).
 		Width(a.width - 2).
 		Height(a.height - 2).
 		Render(body)
@@ -212,16 +223,48 @@ func (a App) renderTabs() string {
 }
 
 func (a App) renderContent() string {
+	artWidth := 42
+	showArt := a.width > 110
+
+	contentWidth := a.width - 4
+	if showArt {
+		contentWidth = a.width - 4 - artWidth
+	}
+
+	var content string
+	var art string
+	var artColor lipgloss.Color
+
 	switch a.activeTab {
 	case TabDashboard:
-		return a.dashboard.View(a.width-4, a.height-6)
+		content = a.dashboard.View(contentWidth, a.height-6)
+		art = StarPower
+		artColor = CoinGold
 	case TabDocker:
-		return a.dockerTab.View(a.width-4, a.height-6)
+		content = a.dockerTab.View(contentWidth, a.height-6)
+		art = ShyGuy
+		artColor = MarioBlue
 	case TabAudit:
-		return a.auditTab.View(a.width-4, a.height-6)
+		content = a.auditTab.View(contentWidth, a.height-6)
+		art = KoopaShell
+		artColor = MarioRed
 	default:
 		return "Unknown tab"
 	}
+
+	if showArt {
+		contentBox := lipgloss.NewStyle().
+			Width(contentWidth).
+			MaxWidth(contentWidth).
+			Render(content)
+		artStyled := lipgloss.NewStyle().
+			Foreground(artColor).
+			Width(artWidth).
+			PaddingTop(2).
+			Render(art)
+		return lipgloss.JoinHorizontal(lipgloss.Top, contentBox, artStyled)
+	}
+	return content
 }
 
 func (a App) renderStatusBar() string {

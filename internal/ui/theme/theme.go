@@ -12,6 +12,7 @@ import (
 var (
 	YoshiGreen = lipgloss.Color("#66BB6A")
 	PipeGreen  = lipgloss.Color("#2E7D32")
+	MarioBlue  = lipgloss.Color("#4A90D9")
 	CoinGold   = lipgloss.Color("#FFD600")
 	MarioRed   = lipgloss.Color("#E53935")
 	OneUpGreen = lipgloss.Color("#4CAF50")
@@ -52,7 +53,7 @@ var (
 		Foreground(OneUpGreen)
 
 	BarWarn = lipgloss.NewStyle().
-			Foreground(CoinGold)
+			Foreground(MarioBlue)
 
 	BarCrit = lipgloss.NewStyle().
 			Foreground(MarioRed)
@@ -63,7 +64,7 @@ var (
 
 	StatusWarn = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(CoinGold)
+			Foreground(MarioBlue)
 
 	StatusCrit = lipgloss.NewStyle().
 			Bold(true).
