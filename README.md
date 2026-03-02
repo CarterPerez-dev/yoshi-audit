@@ -30,12 +30,12 @@
 - **Baseline learning** so future scans only flag genuinely new processes
 - **Search and export** findings to JSON for offline analysis
 
-## Dashboard
+## System Audit
 
-Live-updating system overview with per-resource progress bars and a sortable top-N process table. Includes GPU and VRAM stats via `nvidia-smi`.
+Deep scan across 7 categories: zombies, orphans, unknown daemons, kernel threads, GPU shadows, memory leaks, and unknown services. Ships with a curated known-good list for Debian 13 + KDE Plasma and builds a personal baseline from your system over time. Search with `/` to filter findings live, export to JSON with `E`.
 
 <div align="center">
-<img src="images/3.png" alt="Dashboard tab" width="800"/>
+<img src="images/1.png" alt="System audit" width="800"/>
 </div>
 
 ## Docker Prune Manager
@@ -46,12 +46,12 @@ Interactive multi-select interface for cleaning up Docker resources. Every item 
 <img src="images/2.png" alt="Docker prune manager" width="800"/>
 </div>
 
-## System Audit
+## Dashboard
 
-Deep scan across 7 categories: zombies, orphans, unknown daemons, kernel threads, GPU shadows, memory leaks, and unknown services. Ships with a curated known-good list for Debian 13 + KDE Plasma and builds a personal baseline from your system over time. Search with `/` to filter findings live, export to JSON with `E`.
+Live-updating system overview with per-resource progress bars and a sortable top-N process table. Includes GPU and VRAM stats via `nvidia-smi`.
 
 <div align="center">
-<img src="images/1.png" alt="System audit" width="800"/>
+<img src="images/3.png" alt="Dashboard tab" width="800"/>
 </div>
 
 ## Quick Start
