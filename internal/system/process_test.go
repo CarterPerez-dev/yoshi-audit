@@ -82,7 +82,10 @@ func TestFormatProcessName(t *testing.T) {
 	if got := FormatProcessName("bash", 10); got != "bash      " {
 		t.Errorf("expected padded name, got %q", got)
 	}
-	if got := FormatProcessName("very-long-process-name", 10); got != "very-lo..." {
+	if got := FormatProcessName(
+		"very-long-process-name",
+		10,
+	); got != "very-lo..." {
 		t.Errorf("expected truncated name, got %q", got)
 	}
 	if got := FormatProcessName("exact_fit!", 10); got != "exact_fit!" {

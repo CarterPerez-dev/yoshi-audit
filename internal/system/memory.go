@@ -38,7 +38,7 @@ func GetMemoryInfo() (MemoryInfo, error) {
 	if err != nil {
 		return MemoryInfo{}, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	values := make(map[string]uint64)
 	scanner := bufio.NewScanner(f)
@@ -73,7 +73,9 @@ func GetMemoryInfo() (MemoryInfo, error) {
 
 	memAvailable, ok := values["MemAvailable"]
 	if !ok {
-		return MemoryInfo{}, fmt.Errorf("MemAvailable not found in /proc/meminfo")
+		return MemoryInfo{}, fmt.Errorf(
+			"MemAvailable not found in /proc/meminfo",
+		)
 	}
 
 	swapTotal := values["SwapTotal"]

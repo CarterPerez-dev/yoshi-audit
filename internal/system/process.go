@@ -53,11 +53,11 @@ func readProcessInfo(pid int) (ProcessInfo, error) {
 	info := ProcessInfo{PID: pid}
 
 	statusPath := fmt.Sprintf("/proc/%d/status", pid)
-	f, err := os.Open(statusPath)
+	f, err := os.Open(statusPath) //nolint:gosec
 	if err != nil {
 		return ProcessInfo{}, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -94,7 +94,7 @@ func readProcessInfo(pid int) (ProcessInfo, error) {
 	}
 
 	cmdlinePath := fmt.Sprintf("/proc/%d/cmdline", pid)
-	data, err := os.ReadFile(cmdlinePath)
+	data, err := os.ReadFile(cmdlinePath) //nolint:gosec
 	if err == nil && len(data) > 0 {
 		args := strings.Split(string(data), "\x00")
 		var cleaned []string

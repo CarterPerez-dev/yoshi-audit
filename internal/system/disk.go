@@ -26,8 +26,8 @@ func GetDiskUsage(path string) (DiskInfo, error) {
 		return DiskInfo{}, err
 	}
 
-	total := stat.Blocks * uint64(stat.Bsize)
-	free := stat.Bavail * uint64(stat.Bsize)
+	total := stat.Blocks * uint64(stat.Bsize) //nolint:gosec
+	free := stat.Bavail * uint64(stat.Bsize)  //nolint:gosec
 	used := total - free
 
 	return DiskInfo{

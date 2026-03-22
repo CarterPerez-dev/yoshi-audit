@@ -38,7 +38,7 @@ func readCPUStat() (idle, total uint64, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

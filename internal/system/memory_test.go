@@ -58,7 +58,12 @@ func TestFormatBytes(t *testing.T) {
 	for _, tc := range tests {
 		got := FormatBytes(tc.input)
 		if got != tc.expected {
-			t.Errorf("FormatBytes(%d) = %q, want %q", tc.input, got, tc.expected)
+			t.Errorf(
+				"FormatBytes(%d) = %q, want %q",
+				tc.input,
+				got,
+				tc.expected,
+			)
 		}
 	}
 }
