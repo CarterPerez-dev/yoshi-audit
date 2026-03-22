@@ -8,11 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/CarterPerez-dev/yoshi-audit/internal/system"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/theme"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type SortMode int
@@ -142,10 +141,16 @@ func (d Dashboard) View(width, height int) string {
 		fmt.Sprintf(" %.1f%%", d.cpu)))
 
 	ramPct := d.memory.RAMPercent()
-	b.WriteString(fmt.Sprintf("  %s %s %s\n",
+	b.WriteString(fmt.Sprintf(
+		"  %s %s %s\n",
 		labelStyle.Render("RAM "),
 		theme.ProgressBar(ramPct, barWidth),
-		fmt.Sprintf(" %s/%s", system.FormatBytes(d.memory.UsedRAM), system.FormatBytes(d.memory.TotalRAM))))
+		fmt.Sprintf(
+			" %s/%s",
+			system.FormatBytes(d.memory.UsedRAM),
+			system.FormatBytes(d.memory.TotalRAM),
+		),
+	))
 
 	gpuPct := d.gpu.Utilization
 	b.WriteString(fmt.Sprintf("  %s %s %s\n",
@@ -154,22 +159,40 @@ func (d Dashboard) View(width, height int) string {
 		fmt.Sprintf(" %.1f%%", gpuPct)))
 
 	vramPct := d.gpu.VRAMPercent()
-	b.WriteString(fmt.Sprintf("  %s %s %s\n",
+	b.WriteString(fmt.Sprintf(
+		"  %s %s %s\n",
 		labelStyle.Render("VRAM"),
 		theme.ProgressBar(vramPct, barWidth),
-		fmt.Sprintf(" %s/%s", system.FormatBytes(d.gpu.UsedVRAM), system.FormatBytes(d.gpu.TotalVRAM))))
+		fmt.Sprintf(
+			" %s/%s",
+			system.FormatBytes(d.gpu.UsedVRAM),
+			system.FormatBytes(d.gpu.TotalVRAM),
+		),
+	))
 
 	diskPct := d.disk.Percent()
-	b.WriteString(fmt.Sprintf("  %s %s %s\n",
+	b.WriteString(fmt.Sprintf(
+		"  %s %s %s\n",
 		labelStyle.Render("DISK"),
 		theme.ProgressBar(diskPct, barWidth),
-		fmt.Sprintf(" %s/%s", system.FormatBytes(d.disk.Used), system.FormatBytes(d.disk.Total))))
+		fmt.Sprintf(
+			" %s/%s",
+			system.FormatBytes(d.disk.Used),
+			system.FormatBytes(d.disk.Total),
+		),
+	))
 
 	swapPct := d.memory.SwapPercent()
-	b.WriteString(fmt.Sprintf("  %s %s %s\n",
+	b.WriteString(fmt.Sprintf(
+		"  %s %s %s\n",
 		labelStyle.Render("SWAP"),
 		theme.ProgressBar(swapPct, barWidth),
-		fmt.Sprintf(" %s/%s", system.FormatBytes(d.memory.UsedSwap), system.FormatBytes(d.memory.TotalSwap))))
+		fmt.Sprintf(
+			" %s/%s",
+			system.FormatBytes(d.memory.UsedSwap),
+			system.FormatBytes(d.memory.TotalSwap),
+		),
+	))
 
 	b.WriteString("\n")
 	b.WriteString("  " + theme.TitleStyle.Render("TOP PROCESSES") + "\n")
@@ -182,7 +205,9 @@ func (d Dashboard) View(width, height int) string {
 
 	header := fmt.Sprintf("  %-8s %-18s %6s %10s %10s",
 		"PID", "NAME", "CPU%", "MEM", "GPU MEM")
-	b.WriteString(lipgloss.NewStyle().Foreground(theme.TextDim).Render(header) + "\n")
+	b.WriteString(
+		lipgloss.NewStyle().Foreground(theme.TextDim).Render(header) + "\n",
+	)
 
 	procs := make([]system.ProcessInfo, len(d.procs))
 	copy(procs, d.procs)
@@ -256,9 +281,13 @@ func (d Dashboard) View(width, height int) string {
 	sortLine := "  Sort: "
 	for i, sl := range sortLabels {
 		if sl.active {
-			sortLine += theme.ActiveTabStyle.Render("["+sl.key+"]") + theme.ActiveTabStyle.Render(sl.label)
+			sortLine += theme.ActiveTabStyle.Render(
+				"["+sl.key+"]",
+			) + theme.ActiveTabStyle.Render(
+				sl.label,
+			)
 		} else {
-			sortLine += theme.HelpStyle.Render("["+sl.key+"]"+sl.label)
+			sortLine += theme.HelpStyle.Render("[" + sl.key + "]" + sl.label)
 		}
 		if i < len(sortLabels)-1 {
 			sortLine += "  "

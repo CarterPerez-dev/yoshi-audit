@@ -10,13 +10,12 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/CarterPerez-dev/yoshi-audit/internal/audit"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/config"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/system"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/theme"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -61,7 +60,7 @@ type AuditTab struct {
 
 func NewAuditTab() AuditTab {
 	bl := audit.NewBaseline()
-	bl.Load(config.DefaultBaselinePath())
+	bl.Load(config.DefaultBaselinePath()) //nolint:errcheck
 	return AuditTab{
 		findings:   nil,
 		scanner:    audit.NewScanner(bl),
@@ -79,17 +78,41 @@ func (at AuditTab) RSSHistory() map[int][]uint64 {
 	return at.rssHistory
 }
 
-func FetchAuditData(scanner *audit.Scanner, rssHistory map[int][]uint64) tea.Msg {
+const rssHistoryMaxReadings = 150
+
+func pruneRSSHistory(
+	history map[int][]uint64,
+	active map[int]bool,
+	maxReadings int,
+) {
+	for pid := range history {
+		if !active[pid] {
+			delete(history, pid)
+			continue
+		}
+		if len(history[pid]) > maxReadings {
+			history[pid] = history[pid][len(history[pid])-maxReadings:]
+		}
+	}
+}
+
+func FetchAuditData(
+	scanner *audit.Scanner,
+	rssHistory map[int][]uint64,
+) tea.Msg {
 	procs, err := system.GetProcesses()
 	if err != nil {
 		return AuditDataMsg{Err: err}
 	}
 
-	gpuProcs, _ := system.GetGPUProcesses()
+	gpuProcs, _ := system.GetGPUProcesses() //nolint:errcheck
 
+	activePIDs := make(map[int]bool, len(procs))
 	for _, p := range procs {
+		activePIDs[p.PID] = true
 		rssHistory[p.PID] = append(rssHistory[p.PID], p.RSS)
 	}
+	pruneRSSHistory(rssHistory, activePIDs, rssHistoryMaxReadings)
 
 	findings := scanner.ScanAll(procs, gpuProcs)
 	findings = append(findings, scanner.ScanMemoryLeaks(procs, rssHistory)...)
@@ -128,7 +151,8 @@ func FetchAuditData(scanner *audit.Scanner, rssHistory map[int][]uint64) tea.Msg
 
 func exportFindings(findings []audit.Finding) tea.Msg {
 	timestamp := time.Now().Format("2006-01-02-150405")
-	filename := fmt.Sprintf("yoshi-audit-findings-%s.json", timestamp)
+	home, _ := os.UserHomeDir() //nolint:errcheck
+	filename := fmt.Sprintf("%s/yoshi-audit-findings-%s.json", home, timestamp)
 
 	type exportEntry struct {
 		Type     string `json:"type"`
@@ -156,7 +180,7 @@ func exportFindings(findings []audit.Finding) tea.Msg {
 		return ExportResultMsg{Err: err}
 	}
 
-	err = os.WriteFile(filename, data, 0o644)
+	err = os.WriteFile(filename, data, 0o600)
 	if err != nil {
 		return ExportResultMsg{Err: err}
 	}
@@ -181,7 +205,11 @@ func (at AuditTab) Update(msg tea.Msg) (AuditTab, tea.Cmd) {
 		if msg.Err != nil {
 			at.exportMsg = fmt.Sprintf("Export failed: %v", msg.Err)
 		} else {
-			at.exportMsg = fmt.Sprintf("Exported %d findings to %s", len(at.findings), msg.Path)
+			at.exportMsg = fmt.Sprintf(
+				"Exported %d findings to %s",
+				len(at.findings),
+				msg.Path,
+			)
 		}
 		at.exportTime = time.Now()
 	case tea.KeyMsg:
@@ -242,7 +270,7 @@ func (at AuditTab) Update(msg tea.Msg) (AuditTab, tea.Cmd) {
 			if at.cursor < len(filtered) && at.baseline != nil {
 				f := filtered[at.cursor]
 				at.baseline.Add(f.Name)
-				at.baseline.Save(config.DefaultBaselinePath())
+				at.baseline.Save(config.DefaultBaselinePath()) //nolint:errcheck
 				at.scanning = true
 				scanner := at.scanner
 				rssHistory := at.rssHistory
@@ -256,7 +284,9 @@ func (at AuditTab) Update(msg tea.Msg) (AuditTab, tea.Cmd) {
 				var newFindings []audit.Finding
 				removed := false
 				for _, f := range at.findings {
-					if !removed && f.PID == target.PID && f.Type == target.Type && f.Name == target.Name {
+					if !removed && f.PID == target.PID &&
+						f.Type == target.Type &&
+						f.Name == target.Name {
 						removed = true
 						continue
 					}
@@ -282,11 +312,14 @@ func (at AuditTab) filteredFindings() []audit.Finding {
 	query := strings.ToLower(at.searchQuery)
 	var filtered []audit.Finding
 	for _, f := range at.findings {
-		if f.Severity != audit.SeverityWarn && f.Severity != audit.SeverityCrit {
+		if f.Severity != audit.SeverityWarn &&
+			f.Severity != audit.SeverityCrit {
 			continue
 		}
 		if query != "" {
-			combined := strings.ToLower(f.Name + " " + string(f.Type) + " " + f.Message)
+			combined := strings.ToLower(
+				f.Name + " " + string(f.Type) + " " + f.Message,
+			)
 			if !strings.Contains(combined, query) {
 				continue
 			}
@@ -322,12 +355,23 @@ func (at AuditTab) View(width, height int) string {
 	b.WriteString(theme.TitleStyle.Render(statusLine) + "\n\n")
 
 	if at.err != nil {
-		b.WriteString(fmt.Sprintf("  %s\n", theme.StatusCrit.Render(fmt.Sprintf("Error: %v", at.err))))
+		b.WriteString(
+			fmt.Sprintf(
+				"  %s\n",
+				theme.StatusCrit.Render(fmt.Sprintf("Error: %v", at.err)),
+			),
+		)
 		return b.String()
 	}
 
 	headerStyle := lipgloss.NewStyle().Foreground(theme.TextDim)
-	header := fmt.Sprintf("  %-16s %4s %5s %5s", "FINDINGS", "OK", "WARN", "CRIT")
+	header := fmt.Sprintf(
+		"  %-16s %4s %5s %5s",
+		"FINDINGS",
+		"OK",
+		"WARN",
+		"CRIT",
+	)
 	b.WriteString(headerStyle.Render(header) + "\n")
 
 	typeLabels := []struct {
@@ -348,7 +392,15 @@ func (at AuditTab) View(width, height int) string {
 		okStr := theme.StatusOK.Render(fmt.Sprintf("%4d", sc.OK))
 		warnStr := theme.StatusWarn.Render(fmt.Sprintf("%5d", sc.Warn))
 		critStr := theme.StatusCrit.Render(fmt.Sprintf("%5d", sc.Crit))
-		b.WriteString(fmt.Sprintf("  %-16s %s %s %s\n", tl.label, okStr, warnStr, critStr))
+		b.WriteString(
+			fmt.Sprintf(
+				"  %-16s %s %s %s\n",
+				tl.label,
+				okStr,
+				warnStr,
+				critStr,
+			),
+		)
 	}
 
 	b.WriteString("\n")
@@ -360,14 +412,29 @@ func (at AuditTab) View(width, height int) string {
 		totalCrit += sc.Crit
 	}
 
-	if totalCrit > 0 {
-		face := theme.StatusCrit.Render(fmt.Sprintf("  %s  GAME OVER: %d CRITICAL", statusCritFace, totalCrit))
+	switch {
+	case totalCrit > 0:
+		face := theme.StatusCrit.Render(
+			fmt.Sprintf(
+				"  %s  GAME OVER: %d CRITICAL",
+				statusCritFace,
+				totalCrit,
+			),
+		)
 		b.WriteString(face + "\n")
-	} else if totalWarn > 0 {
-		face := theme.StatusWarn.Render(fmt.Sprintf("  %s  FIRE FLOWER: %d WARNINGS", statusWarnFace, totalWarn))
+	case totalWarn > 0:
+		face := theme.StatusWarn.Render(
+			fmt.Sprintf(
+				"  %s  FIRE FLOWER: %d WARNINGS",
+				statusWarnFace,
+				totalWarn,
+			),
+		)
 		b.WriteString(face + "\n")
-	} else {
-		face := theme.StatusOK.Render(fmt.Sprintf("  %s  1UP: ALL CLEAR", statusOKFace))
+	default:
+		face := theme.StatusOK.Render(
+			fmt.Sprintf("  %s  1UP: ALL CLEAR", statusOKFace),
+		)
 		b.WriteString(face + "\n")
 	}
 
@@ -377,7 +444,7 @@ func (at AuditTab) View(width, height int) string {
 
 	if at.searchMode || at.searchQuery != "" {
 		searchStyle := lipgloss.NewStyle().Foreground(theme.CoinGold).Bold(true)
-		prompt := "/"
+		var prompt string
 		if at.searchMode {
 			prompt = "/" + at.searchQuery + "_"
 		} else {
@@ -402,7 +469,11 @@ func (at AuditTab) View(width, height int) string {
 		if remaining < 0 {
 			remaining = 0
 		}
-		b.WriteString(theme.StatusWarn.Render(warnHeader+strings.Repeat("\u2500", remaining)) + "\n\n")
+		b.WriteString(
+			theme.StatusWarn.Render(
+				warnHeader+strings.Repeat("\u2500", remaining),
+			) + "\n\n",
+		)
 	}
 
 	maxItems := height - 24
@@ -433,7 +504,9 @@ func (at AuditTab) View(width, height int) string {
 			nameStr = nameStr[:17] + "..."
 		}
 
-		nameHighlight := lipgloss.NewStyle().Foreground(theme.CoinGold).Render("\"" + nameStr + "\"")
+		nameHighlight := lipgloss.NewStyle().
+			Foreground(theme.CoinGold).
+			Render("\"" + nameStr + "\"")
 		line := fmt.Sprintf("  %-4s  %-10s  %s PID %d - %s",
 			f.Severity, f.Type, nameHighlight, f.PID, f.Message)
 
@@ -461,12 +534,18 @@ func (at AuditTab) View(width, height int) string {
 	}
 
 	if at.exportMsg != "" && time.Since(at.exportTime) < 10*time.Second {
-		exportStyle := lipgloss.NewStyle().Foreground(theme.OneUpGreen).Bold(true)
+		exportStyle := lipgloss.NewStyle().
+			Foreground(theme.OneUpGreen).
+			Bold(true)
 		b.WriteString("\n  " + exportStyle.Render(at.exportMsg))
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  " + theme.HelpStyle.Render("[Enter] Inspect  [A]dd to baseline  [I]gnore  [R]escan  [/]Search  [E]xport"))
+	b.WriteString(
+		"  " + theme.HelpStyle.Render(
+			"[Enter] Inspect  [A]dd to baseline  [I]gnore  [R]escan  [/]Search  [E]xport",
+		),
+	)
 
 	return b.String()
 }

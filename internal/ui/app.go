@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/CarterPerez-dev/yoshi-audit/internal/config"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/audittab"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dashboard"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/dockertab"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Tab int
@@ -22,6 +21,11 @@ const (
 	TabDashboard Tab = iota
 	TabDocker
 	TabAudit
+)
+
+const (
+	keyCtrlC = "ctrl+c"
+	keyTab   = "tab"
 )
 
 type TickMsg time.Time
@@ -40,7 +44,10 @@ type App struct {
 }
 
 func NewApp() App {
-	cfg, _ := config.Load(config.DefaultPath())
+	cfg, err := config.Load(config.DefaultPath())
+	if err != nil {
+		cfg = config.Default()
+	}
 	return App{
 		activeTab:  TabDashboard,
 		showSplash: true,
@@ -52,8 +59,12 @@ func NewApp() App {
 	}
 }
 
-func doTick() tea.Cmd {
-	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+func (a App) doTick() tea.Cmd {
+	interval := time.Duration(a.cfg.RefreshInterval) * time.Second
+	if interval < time.Second {
+		interval = time.Second
+	}
+	return tea.Tick(interval, func(t time.Time) tea.Msg {
 		return TickMsg(t)
 	})
 }
@@ -69,7 +80,7 @@ func (a App) initDataFetches() tea.Cmd {
 	cfg := a.cfg
 	auditScanner := a.auditTab.Scanner()
 	auditRSS := a.auditTab.RSSHistory()
-	return tea.Batch(doTick(), dashboard.FetchStats, func() tea.Msg {
+	return tea.Batch(a.doTick(), dashboard.FetchStats, func() tea.Msg {
 		return dockertab.FetchDockerData(cfg)
 	}, func() tea.Msg {
 		return audittab.FetchAuditData(auditScanner, auditRSS)
@@ -110,9 +121,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if a.activeTab == TabDocker {
 			switch msg.String() {
-			case "q", "ctrl+c":
+			case "q", keyCtrlC:
 				return a, tea.Quit
-			case "tab":
+			case keyTab:
 				a.activeTab = (a.activeTab + 1) % 3
 			case "r":
 				cfg := a.cfg
@@ -127,9 +138,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if a.activeTab == TabAudit {
 			switch msg.String() {
-			case "q", "ctrl+c":
+			case "q", keyCtrlC:
 				return a, tea.Quit
-			case "tab":
+			case keyTab:
 				a.activeTab = (a.activeTab + 1) % 3
 			default:
 				var cmd tea.Cmd
@@ -140,7 +151,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q", keyCtrlC:
 			return a, tea.Quit
 		case "1":
 			a.activeTab = TabDashboard
@@ -148,7 +159,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.activeTab = TabDocker
 		case "3":
 			a.activeTab = TabAudit
-		case "tab":
+		case keyTab:
 			a.activeTab = (a.activeTab + 1) % 3
 		case "p":
 			a.paused = !a.paused
@@ -159,9 +170,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case TickMsg:
 		if !a.paused {
-			return a, tea.Batch(doTick(), dashboard.FetchStats)
+			return a, tea.Batch(a.doTick(), dashboard.FetchStats)
 		}
-		return a, doTick()
+		return a, a.doTick()
 	}
 	return a, nil
 }
@@ -183,6 +194,8 @@ func (a App) View() string {
 
 	borderColor := PipeGreen
 	switch a.activeTab {
+	case TabDashboard:
+		borderColor = PipeGreen
 	case TabDocker:
 		borderColor = MarioBlue
 	case TabAudit:
@@ -211,7 +224,13 @@ func (a App) renderTabs() string {
 
 	tabs := make([]string, len(labels))
 	for i, l := range labels {
-		text := fmt.Sprintf("%s %s-%s %s %s", TabHeader, "1", l.key, l.name, TabHeader)
+		text := fmt.Sprintf(
+			"%s [%s] %s %s",
+			TabHeader,
+			l.key,
+			l.name,
+			TabHeader,
+		)
 		if a.activeTab == l.tab {
 			tabs[i] = ActiveTabStyle.Render(text)
 		} else {

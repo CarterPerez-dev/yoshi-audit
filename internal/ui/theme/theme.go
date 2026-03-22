@@ -53,10 +53,10 @@ var (
 		Foreground(OneUpGreen)
 
 	BarWarn = lipgloss.NewStyle().
-			Foreground(MarioBlue)
+		Foreground(MarioBlue)
 
 	BarCrit = lipgloss.NewStyle().
-			Foreground(MarioRed)
+		Foreground(MarioRed)
 
 	StatusOK = lipgloss.NewStyle().
 			Bold(true).

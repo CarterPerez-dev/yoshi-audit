@@ -8,13 +8,12 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/CarterPerez-dev/yoshi-audit/internal/config"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/docker"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/system"
 	"github.com/CarterPerez-dev/yoshi-audit/internal/ui/theme"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type SubTab int
@@ -34,6 +33,8 @@ const (
 	Protected
 )
 
+const noneTag = "<none>"
+
 type DockerItem struct {
 	ID       string
 	Name     string
@@ -49,6 +50,7 @@ type DockerDataMsg struct {
 	Images     []DockerItem
 	Containers []DockerItem
 	Volumes    []DockerItem
+	Networks   []DockerItem
 	BuildCache int64
 	Err        error
 }
@@ -64,6 +66,7 @@ type DockerTab struct {
 	images     []DockerItem
 	containers []DockerItem
 	volumes    []DockerItem
+	networks   []DockerItem
 	buildCache int64
 	cursor     int
 	confirming bool
@@ -86,9 +89,14 @@ func FetchDockerData(cfg config.Config) tea.Msg {
 	if err != nil {
 		return DockerDataMsg{Err: err}
 	}
-	defer cli.Close()
+	defer cli.Close() //nolint:errcheck
 
 	images, containers, volumes, cache, err := cli.GetDiskUsage()
+	if err != nil {
+		return DockerDataMsg{Err: err}
+	}
+
+	networks, err := cli.ListNetworks()
 	if err != nil {
 		return DockerDataMsg{Err: err}
 	}
@@ -99,7 +107,7 @@ func FetchDockerData(cfg config.Config) tea.Msg {
 	for _, img := range images {
 		cat := docker.CategorizeImage(img, cfg.ProtectionPatterns)
 		name := img.Repository
-		if img.Tag != "<none>" {
+		if img.Tag != noneTag {
 			name = img.Repository + ":" + img.Tag
 		}
 		extra := ""
@@ -111,7 +119,7 @@ func FetchDockerData(cfg config.Config) tea.Msg {
 		}
 		state := Unselected
 		fullName := img.Repository
-		if img.Tag != "<none>" {
+		if img.Tag != noneTag {
 			fullName = img.Repository + ":" + img.Tag
 		}
 		if pe.IsProtected(fullName) || pe.IsProtected(img.Repository) {
@@ -173,10 +181,32 @@ func FetchDockerData(cfg config.Config) tea.Msg {
 		})
 	}
 
+	var netItems []DockerItem
+	for _, net := range networks {
+		cat := docker.CategorizeNetwork(net, cfg.ProtectionPatterns)
+		state := Unselected
+		if pe.IsProtected(net.Name) || cat == docker.CategoryDoNotTouch {
+			state = Protected
+		}
+		extra := net.Driver
+		if net.Containers > 0 {
+			extra = fmt.Sprintf("%d containers", net.Containers)
+		}
+		netItems = append(netItems, DockerItem{
+			ID:       net.ID,
+			Name:     net.Name,
+			Size:     0,
+			Category: cat,
+			State:    state,
+			Extra:    extra,
+		})
+	}
+
 	return DockerDataMsg{
 		Images:     imgItems,
 		Containers: ctrItems,
 		Volumes:    volItems,
+		Networks:   netItems,
 		BuildCache: cache.TotalSize,
 	}
 }
@@ -191,6 +221,7 @@ func (dt DockerTab) Update(msg tea.Msg) (DockerTab, tea.Cmd) {
 		dt.images = msg.Images
 		dt.containers = msg.Containers
 		dt.volumes = msg.Volumes
+		dt.networks = msg.Networks
 		dt.buildCache = msg.BuildCache
 		dt.err = nil
 	case DeleteResultMsg:
@@ -300,7 +331,11 @@ func (dt DockerTab) View(width, height int) string {
 	tabLine := "  "
 	for idx, st := range subTabs {
 		if st.active {
-			tabLine += theme.ActiveTabStyle.Render("["+st.key+"]") + theme.ActiveTabStyle.Render(st.label)
+			tabLine += theme.ActiveTabStyle.Render(
+				"["+st.key+"]",
+			) + theme.ActiveTabStyle.Render(
+				st.label,
+			)
 		} else {
 			tabLine += theme.HelpStyle.Render("[" + st.key + "]" + st.label)
 		}
@@ -312,14 +347,21 @@ func (dt DockerTab) View(width, height int) string {
 
 	totalDisk := dt.totalDiskUsage()
 	reclaimable := dt.reclaimableSize()
-	b.WriteString(fmt.Sprintf("  Total Disk: %s    Reclaimable: %s    Build Cache: %s\n",
-		formatSize(totalDisk),
-		theme.StatusWarn.Render(formatSize(reclaimable)),
-		formatSize(dt.buildCache)))
+	b.WriteString(
+		fmt.Sprintf("  Total Disk: %s    Reclaimable: %s    Build Cache: %s\n",
+			formatSize(totalDisk),
+			theme.StatusWarn.Render(formatSize(reclaimable)),
+			formatSize(dt.buildCache)),
+	)
 	b.WriteString("\n")
 
 	if dt.err != nil {
-		b.WriteString(fmt.Sprintf("  %s\n", theme.DangerStyle.Render(fmt.Sprintf("Error: %v", dt.err))))
+		b.WriteString(
+			fmt.Sprintf(
+				"  %s\n",
+				theme.DangerStyle.Render(fmt.Sprintf("Error: %v", dt.err)),
+			),
+		)
 		return b.String()
 	}
 
@@ -367,6 +409,8 @@ func (dt DockerTab) View(width, height int) string {
 				indicator = "[x]"
 			case Protected:
 				indicator = "[*]"
+			case Unselected:
+				indicator = "[ ]"
 			}
 
 			name := item.Name
@@ -417,7 +461,11 @@ func (dt DockerTab) View(width, height int) string {
 	if dt.confirming {
 		b.WriteString("\n")
 		b.WriteString("  " + theme.DangerStyle.Render(dt.confirmMsg) + "\n")
-		b.WriteString("  " + theme.DangerStyle.Render("Press [Y] to confirm, [Esc] to cancel") + "\n")
+		b.WriteString(
+			"  " + theme.DangerStyle.Render(
+				"Press [Y] to confirm, [Esc] to cancel",
+			) + "\n",
+		)
 	}
 
 	if len(dt.config.PrunePresets) > 0 {
@@ -433,7 +481,11 @@ func (dt DockerTab) View(width, height int) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  " + theme.HelpStyle.Render("[Space]Select [A]ll [P]rotect [D]elete [R]efresh [Esc]Cancel"))
+	b.WriteString(
+		"  " + theme.HelpStyle.Render(
+			"[Space]Select [A]ll [P]rotect [D]elete [R]efresh [Esc]Cancel",
+		),
+	)
 
 	return b.String()
 }
@@ -446,9 +498,10 @@ func (dt *DockerTab) currentItems() []DockerItem {
 		return dt.containers
 	case SubTabVolumes:
 		return dt.volumes
-	default:
-		return nil
+	case SubTabNetworks:
+		return dt.networks
 	}
+	return nil
 }
 
 func (dt *DockerTab) setCurrentItems(items []DockerItem) {
@@ -459,6 +512,8 @@ func (dt *DockerTab) setCurrentItems(items []DockerItem) {
 		dt.containers = items
 	case SubTabVolumes:
 		dt.volumes = items
+	case SubTabNetworks:
+		dt.networks = items
 	}
 }
 
@@ -480,7 +535,11 @@ func (dt DockerTab) buildConfirmMsg(selected []DockerItem) string {
 		names = append(names, item.Name)
 	}
 
-	msg := fmt.Sprintf("Delete %d items (%s)?", len(selected), formatSize(totalSize))
+	msg := fmt.Sprintf(
+		"Delete %d items (%s)?",
+		len(selected),
+		formatSize(totalSize),
+	)
 	if len(names) <= 5 {
 		msg += "\n"
 		for _, n := range names {
@@ -499,7 +558,7 @@ func (dt DockerTab) executeDelete() tea.Cmd {
 		if err != nil {
 			return DeleteResultMsg{Err: err}
 		}
-		defer cli.Close()
+		defer cli.Close() //nolint:errcheck
 
 		var deleted int
 		var freed int64
@@ -512,8 +571,8 @@ func (dt DockerTab) executeDelete() tea.Cmd {
 				err = cli.RemoveContainer(item.ID)
 			case SubTabVolumes:
 				err = cli.RemoveVolume(item.ID)
-			default:
-				continue
+			case SubTabNetworks:
+				err = cli.RemoveNetwork(item.ID)
 			}
 			if err == nil {
 				deleted++
@@ -538,7 +597,7 @@ func (dt *DockerTab) applyPreset(index int) {
 	var imgInfos []docker.ImageInfo
 	for _, item := range dt.images {
 		repo := item.Name
-		tag := "<none>"
+		tag := noneTag
 		if parts := strings.SplitN(item.Name, ":", 2); len(parts) == 2 {
 			repo = parts[0]
 			tag = parts[1]
@@ -560,7 +619,23 @@ func (dt *DockerTab) applyPreset(index int) {
 		})
 	}
 
-	imageIDs, volumeNames := docker.ApplyPreset(preset, imgInfos, volInfos, dt.protection)
+	var ctrInfos []docker.ContainerInfo
+	for _, item := range dt.containers {
+		ctrInfos = append(ctrInfos, docker.ContainerInfo{
+			ID:      item.ID,
+			Name:    item.Name,
+			Image:   item.Extra,
+			Running: item.Status == "running",
+		})
+	}
+
+	imageIDs, volumeNames, containerIDs := docker.ApplyPreset(
+		preset,
+		imgInfos,
+		volInfos,
+		ctrInfos,
+		dt.protection,
+	)
 
 	imageSet := make(map[string]bool, len(imageIDs))
 	for _, id := range imageIDs {
@@ -577,8 +652,20 @@ func (dt *DockerTab) applyPreset(index int) {
 		volumeSet[name] = true
 	}
 	for idx := range dt.volumes {
-		if dt.volumes[idx].State != Protected && volumeSet[dt.volumes[idx].Name] {
+		if dt.volumes[idx].State != Protected &&
+			volumeSet[dt.volumes[idx].Name] {
 			dt.volumes[idx].State = Selected
+		}
+	}
+
+	containerSet := make(map[string]bool, len(containerIDs))
+	for _, id := range containerIDs {
+		containerSet[id] = true
+	}
+	for idx := range dt.containers {
+		if dt.containers[idx].State != Protected &&
+			containerSet[dt.containers[idx].ID] {
+			dt.containers[idx].State = Selected
 		}
 	}
 }

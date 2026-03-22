@@ -29,13 +29,19 @@ func TestAppTabSwitch(t *testing.T) {
 	app.showSplash = false
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
-	a := model.(App)
+	a, ok := model.(App)
+	if !ok {
+		t.Fatal("Update did not return App")
+	}
 	if a.activeTab != TabDocker {
 		t.Error("should be on docker tab")
 	}
 
 	model, _ = a.Update(tea.KeyMsg{Type: tea.KeyTab})
-	a = model.(App)
+	a, ok = model.(App)
+	if !ok {
+		t.Fatal("Update did not return App")
+	}
 	if a.activeTab != TabAudit {
 		t.Error("should be on audit tab")
 	}
@@ -46,7 +52,10 @@ func TestAppPause(t *testing.T) {
 	app.showSplash = false
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
-	a := model.(App)
+	a, ok := model.(App)
+	if !ok {
+		t.Fatal("Update did not return App")
+	}
 	if !a.paused {
 		t.Error("should be paused")
 	}
@@ -57,7 +66,10 @@ func TestAppWindowSize(t *testing.T) {
 	app.showSplash = false
 
 	model, _ := app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	a := model.(App)
+	a, ok := model.(App)
+	if !ok {
+		t.Fatal("Update did not return App")
+	}
 	if a.width != 120 || a.height != 40 {
 		t.Error("should store dimensions")
 	}

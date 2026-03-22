@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	ui "github.com/CarterPerez-dev/yoshi-audit/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
