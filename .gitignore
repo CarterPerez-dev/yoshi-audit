@@ -3,7 +3,8 @@
 
 # Build output
 bin/
-yoshi-audit
+/yoshi-audit
+!/yoshi-audit/
 
 # Coverage
 coverage.out

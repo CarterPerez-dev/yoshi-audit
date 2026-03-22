@@ -57,7 +57,7 @@ Live-updating system overview with per-resource progress bars and a sortable top
 ## Quick Start
 
 ```sh
-go install github.com/CarterPerez-dev/yoshi-audit/cmd@latest
+go install github.com/CarterPerez-dev/yoshi-audit/yoshi-audit@latest
 yoshi-audit
 ```
 

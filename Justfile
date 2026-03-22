@@ -84,11 +84,11 @@ pre-push: tidy vet test
 
 [group('dev')]
 run:
-    go run ./cmd
+    go run ./yoshi-audit
 
 [group('dev')]
 run-debug:
-    YOSHI_DEBUG=1 go run ./cmd
+    YOSHI_DEBUG=1 go run ./yoshi-audit
 
 # =============================================================================
 # Build (Production)
@@ -96,16 +96,16 @@ run-debug:
 
 [group('prod')]
 build:
-    go build -ldflags="-s -w" -o bin/yoshi-audit ./cmd
+    go build -ldflags="-s -w" -o bin/yoshi-audit ./yoshi-audit
     @echo "Built: bin/yoshi-audit ($(du -h bin/yoshi-audit | cut -f1))"
 
 [group('prod')]
 build-debug:
-    go build -o bin/yoshi-audit ./cmd
+    go build -o bin/yoshi-audit ./yoshi-audit
 
 [group('prod')]
 install:
-    go install ./cmd
+    go install ./yoshi-audit
 
 # =============================================================================
 # Utilities
