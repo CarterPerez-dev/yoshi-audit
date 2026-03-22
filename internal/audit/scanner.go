@@ -50,7 +50,10 @@ func NewScanner(baseline *Baseline) *Scanner {
 	}
 }
 
-func (s *Scanner) ScanAll(procs []system.ProcessInfo, gpuProcs []system.GPUProcess) []Finding {
+func (s *Scanner) ScanAll(
+	procs []system.ProcessInfo,
+	gpuProcs []system.GPUProcess,
+) []Finding {
 	var findings []Finding
 	findings = append(findings, s.ScanZombies(procs)...)
 	findings = append(findings, s.ScanOrphans(procs)...)
@@ -69,8 +72,11 @@ func (s *Scanner) ScanZombies(procs []system.ProcessInfo) []Finding {
 				Severity: SeverityWarn,
 				PID:      p.PID,
 				Name:     p.Name,
-				Message:  fmt.Sprintf("Zombie process (parent: PID %d)", p.PPID),
-				Detail:   p.Cmdline,
+				Message: fmt.Sprintf(
+					"Zombie process (parent: PID %d)",
+					p.PPID,
+				),
+				Detail: p.Cmdline,
 			})
 		}
 	}
@@ -112,8 +118,12 @@ func (s *Scanner) ScanDaemons(procs []system.ProcessInfo) []Finding {
 			Severity: SeverityWarn,
 			PID:      p.PID,
 			Name:     p.Name,
-			Message:  fmt.Sprintf("Unknown daemon: %s (RSS: %d MiB)", p.Cmdline, p.RSS/(1024*1024)),
-			Detail:   p.Cmdline,
+			Message: fmt.Sprintf(
+				"Unknown daemon: %s (RSS: %d MiB)",
+				p.Cmdline,
+				p.RSS/(1024*1024),
+			),
+			Detail: p.Cmdline,
 		})
 	}
 	return findings
@@ -140,7 +150,10 @@ func (s *Scanner) ScanKernelThreads(procs []system.ProcessInfo) []Finding {
 	}
 }
 
-func (s *Scanner) ScanGPUShadows(procs []system.ProcessInfo, gpuProcs []system.GPUProcess) []Finding {
+func (s *Scanner) ScanGPUShadows(
+	procs []system.ProcessInfo,
+	gpuProcs []system.GPUProcess,
+) []Finding {
 	pidSet := make(map[int]bool)
 	for _, p := range procs {
 		pidSet[p.PID] = true
@@ -155,14 +168,20 @@ func (s *Scanner) ScanGPUShadows(procs []system.ProcessInfo, gpuProcs []system.G
 				PID:      gp.PID,
 				Name:     fmt.Sprintf("gpu-pid-%d", gp.PID),
 				Message:  "GPU process not visible in process list",
-				Detail:   fmt.Sprintf("VRAM usage: %d MiB", gp.UsedVRAM/(1024*1024)),
+				Detail: fmt.Sprintf(
+					"VRAM usage: %d MiB",
+					gp.UsedVRAM/(1024*1024),
+				),
 			})
 		}
 	}
 	return findings
 }
 
-func (s *Scanner) ScanMemoryLeaks(procs []system.ProcessInfo, history map[int][]uint64) []Finding {
+func (s *Scanner) ScanMemoryLeaks(
+	procs []system.ProcessInfo,
+	history map[int][]uint64,
+) []Finding {
 	nameMap := make(map[int]string)
 	for _, p := range procs {
 		nameMap[p.PID] = p.Name
@@ -188,8 +207,16 @@ func (s *Scanner) ScanMemoryLeaks(procs []system.ProcessInfo, history map[int][]
 				Severity: SeverityWarn,
 				PID:      pid,
 				Name:     name,
-				Message:  fmt.Sprintf("Process grew %d MiB in %d readings", grewMiB, len(readings)),
-				Detail:   fmt.Sprintf("first: %d bytes, last: %d bytes", first, last),
+				Message: fmt.Sprintf(
+					"Process grew %d MiB in %d readings",
+					grewMiB,
+					len(readings),
+				),
+				Detail: fmt.Sprintf(
+					"first: %d bytes, last: %d bytes",
+					first,
+					last,
+				),
 			})
 		}
 	}

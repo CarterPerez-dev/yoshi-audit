@@ -36,7 +36,7 @@ func Default() Config {
 }
 
 func configDir() string {
-	home, _ := os.UserHomeDir()
+	home, _ := os.UserHomeDir() //nolint:errcheck
 	return filepath.Join(home, ".config", "yoshi-audit")
 }
 
@@ -49,7 +49,7 @@ func DefaultBaselinePath() string {
 }
 
 func Load(path string) (Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return Default(), nil
@@ -65,7 +65,7 @@ func Load(path string) (Config, error) {
 }
 
 func (c Config) Save(path string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
 
@@ -74,5 +74,5 @@ func (c Config) Save(path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }

@@ -22,7 +22,7 @@ func NewBaseline() *Baseline {
 }
 
 func (b *Baseline) Load(path string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -35,7 +35,7 @@ func (b *Baseline) Load(path string) error {
 
 func (b *Baseline) Save(path string) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 
@@ -44,7 +44,7 @@ func (b *Baseline) Save(path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func (b *Baseline) IsKnown(name string) bool {

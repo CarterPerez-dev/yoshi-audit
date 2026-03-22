@@ -49,7 +49,13 @@ func TestScanOrphans(t *testing.T) {
 func TestScanDaemons(t *testing.T) {
 	s := NewScanner(nil)
 	procs := []system.ProcessInfo{
-		{PID: 100, Name: "some_weird_daemon", State: "S", PPID: 1, RSS: 50 * 1024 * 1024},
+		{
+			PID:   100,
+			Name:  "some_weird_daemon",
+			State: "S",
+			PPID:  1,
+			RSS:   50 * 1024 * 1024,
+		},
 		{PID: 200, Name: "sshd", State: "S", PPID: 1, RSS: 10 * 1024 * 1024},
 	}
 	findings := s.ScanDaemons(procs)
