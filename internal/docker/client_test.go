@@ -12,7 +12,7 @@ func TestNewClient(t *testing.T) {
 	if err != nil {
 		t.Skipf("Docker not available: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 }
 
 func TestGetDiskUsage(t *testing.T) {
@@ -20,7 +20,7 @@ func TestGetDiskUsage(t *testing.T) {
 	if err != nil {
 		t.Skipf("Docker not available: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	images, containers, volumes, cache, err := c.GetDiskUsage()
 	if err != nil {
@@ -39,7 +39,7 @@ func TestListImages(t *testing.T) {
 	if err != nil {
 		t.Skipf("Docker not available: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	images, err := c.ListImages()
 	if err != nil {
@@ -57,7 +57,7 @@ func TestListContainers(t *testing.T) {
 	if err != nil {
 		t.Skipf("Docker not available: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	containers, err := c.ListContainers()
 	if err != nil {
@@ -70,12 +70,39 @@ func TestListContainers(t *testing.T) {
 	}
 }
 
+func TestListNetworks(t *testing.T) {
+	c, err := NewClient()
+	if err != nil {
+		t.Skipf("Docker not available: %v", err)
+	}
+	defer c.Close() //nolint:errcheck
+
+	networks, err := c.ListNetworks()
+	if err != nil {
+		t.Fatalf("ListNetworks failed: %v", err)
+	}
+	if len(networks) < 3 {
+		t.Errorf(
+			"expected at least 3 default networks (bridge/host/none), got %d",
+			len(networks),
+		)
+	}
+	for _, n := range networks {
+		if n.ID == "" {
+			t.Error("network ID should not be empty")
+		}
+		if n.Name == "" {
+			t.Error("network name should not be empty")
+		}
+	}
+}
+
 func TestListVolumes(t *testing.T) {
 	c, err := NewClient()
 	if err != nil {
 		t.Skipf("Docker not available: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	volumes, err := c.ListVolumes()
 	if err != nil {

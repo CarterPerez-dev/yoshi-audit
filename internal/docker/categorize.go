@@ -16,7 +16,10 @@ const (
 	CategoryDoNotTouch   SafetyCategory = 4
 )
 
-func CategorizeImage(img ImageInfo, protectionPatterns []string) SafetyCategory {
+func CategorizeImage(
+	img ImageInfo,
+	protectionPatterns []string,
+) SafetyCategory {
 	if img.Dangling && img.Containers == 0 {
 		return CategorySafe
 	}
@@ -27,7 +30,7 @@ func CategorizeImage(img ImageInfo, protectionPatterns []string) SafetyCategory 
 
 	pe := NewProtectionEngine(protectionPatterns)
 	fullName := img.Repository
-	if img.Tag != "<none>" {
+	if img.Tag != noneTag {
 		fullName = img.Repository + ":" + img.Tag
 	}
 	if pe.MatchesPattern(fullName) || pe.MatchesPattern(img.Repository) {
@@ -37,7 +40,10 @@ func CategorizeImage(img ImageInfo, protectionPatterns []string) SafetyCategory 
 	return CategoryProbablySafe
 }
 
-func CategorizeVolume(vol VolumeInfo, protectionPatterns []string) SafetyCategory {
+func CategorizeVolume(
+	vol VolumeInfo,
+	protectionPatterns []string,
+) SafetyCategory {
 	pe := NewProtectionEngine(protectionPatterns)
 	if pe.MatchesPattern(vol.Name) {
 		return CategoryDoNotTouch
@@ -62,7 +68,10 @@ func CategorizeVolume(vol VolumeInfo, protectionPatterns []string) SafetyCategor
 	return CategorySafe
 }
 
-func CategorizeContainer(ctr ContainerInfo, protectionPatterns []string) SafetyCategory {
+func CategorizeContainer(
+	ctr ContainerInfo,
+	protectionPatterns []string,
+) SafetyCategory {
 	if ctr.Running {
 		return CategoryDoNotTouch
 	}
@@ -73,6 +82,27 @@ func CategorizeContainer(ctr ContainerInfo, protectionPatterns []string) SafetyC
 	}
 
 	return CategoryProbablySafe
+}
+
+func CategorizeNetwork(
+	net NetworkInfo,
+	protectionPatterns []string,
+) SafetyCategory {
+	switch net.Name {
+	case "bridge", "host", "none":
+		return CategoryDoNotTouch
+	}
+
+	if net.Containers > 0 {
+		return CategoryDoNotTouch
+	}
+
+	pe := NewProtectionEngine(protectionPatterns)
+	if pe.MatchesPattern(net.Name) {
+		return CategoryDoNotTouch
+	}
+
+	return CategorySafe
 }
 
 func CategoryLabel(cat SafetyCategory) string {

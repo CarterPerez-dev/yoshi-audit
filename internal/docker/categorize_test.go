@@ -16,7 +16,10 @@ func TestCategorizeImage_Dangling(t *testing.T) {
 	}
 	cat := CategorizeImage(img, nil)
 	if cat != CategorySafe {
-		t.Errorf("dangling image should be CategorySafe, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"dangling image should be CategorySafe, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -28,7 +31,10 @@ func TestCategorizeImage_InUse(t *testing.T) {
 	}
 	cat := CategorizeImage(img, nil)
 	if cat != CategoryDoNotTouch {
-		t.Errorf("image with containers=1 should be CategoryDoNotTouch, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"image with containers=1 should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -40,7 +46,10 @@ func TestCategorizeImage_MatchesProtection(t *testing.T) {
 	}
 	cat := CategorizeImage(img, []string{"*certgames*"})
 	if cat != CategoryDoNotTouch {
-		t.Errorf("image matching *certgames* should be CategoryDoNotTouch, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"image matching *certgames* should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -52,7 +61,10 @@ func TestCategorizeImage_Named(t *testing.T) {
 	}
 	cat := CategorizeImage(img, nil)
 	if cat != CategoryProbablySafe {
-		t.Errorf("named image with containers=0 should be CategoryProbablySafe, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"named image with containers=0 should be CategoryProbablySafe, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -64,7 +76,10 @@ func TestCategorizeVolume_Backup(t *testing.T) {
 	}
 	cat := CategorizeVolume(vol, nil)
 	if cat != CategoryCheckFirst {
-		t.Errorf("volume with 'backup' in name should be CategoryCheckFirst, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"volume with 'backup' in name should be CategoryCheckFirst, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -76,7 +91,10 @@ func TestCategorizeVolume_MatchesProtection(t *testing.T) {
 	}
 	cat := CategorizeVolume(vol, []string{"*mongo*"})
 	if cat != CategoryDoNotTouch {
-		t.Errorf("volume matching *mongo* should be CategoryDoNotTouch, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"volume matching *mongo* should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -88,7 +106,10 @@ func TestCategorizeVolume_Attached(t *testing.T) {
 	}
 	cat := CategorizeVolume(vol, nil)
 	if cat != CategoryDoNotTouch {
-		t.Errorf("volume with links > 0 should be CategoryDoNotTouch, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"volume with links > 0 should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -100,7 +121,10 @@ func TestCategorizeVolume_UnusedNamed(t *testing.T) {
 	}
 	cat := CategorizeVolume(vol, nil)
 	if cat != CategoryProbablySafe {
-		t.Errorf("unused named volume with size > 0 should be CategoryProbablySafe, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"unused named volume with size > 0 should be CategoryProbablySafe, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -112,7 +136,10 @@ func TestCategorizeVolume_HashSmall(t *testing.T) {
 	}
 	cat := CategorizeVolume(vol, nil)
 	if cat != CategorySafe {
-		t.Errorf("hash-named empty volume should be CategorySafe, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"hash-named empty volume should be CategorySafe, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -125,7 +152,10 @@ func TestCategorizeContainer_Running(t *testing.T) {
 	}
 	cat := CategorizeContainer(ctr, nil)
 	if cat != CategoryDoNotTouch {
-		t.Errorf("running container should be CategoryDoNotTouch, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"running container should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -138,7 +168,10 @@ func TestCategorizeContainer_Stopped(t *testing.T) {
 	}
 	cat := CategorizeContainer(ctr, nil)
 	if cat != CategoryProbablySafe {
-		t.Errorf("stopped container should be CategoryProbablySafe, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"stopped container should be CategoryProbablySafe, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 
@@ -151,7 +184,61 @@ func TestCategorizeContainer_StoppedProtected(t *testing.T) {
 	}
 	cat := CategorizeContainer(ctr, []string{"*certgames*"})
 	if cat != CategoryDoNotTouch {
-		t.Errorf("stopped protected container should be CategoryDoNotTouch, got %s", CategoryLabel(cat))
+		t.Errorf(
+			"stopped protected container should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
+	}
+}
+
+func TestCategorizeNetwork_BuiltIn(t *testing.T) {
+	for _, name := range []string{"bridge", "host", "none"} {
+		net := NetworkInfo{Name: name, Driver: name, Containers: 0}
+		cat := CategorizeNetwork(net, nil)
+		if cat != CategoryDoNotTouch {
+			t.Errorf(
+				"built-in network %q should be CategoryDoNotTouch, got %s",
+				name,
+				CategoryLabel(cat),
+			)
+		}
+	}
+}
+
+func TestCategorizeNetwork_WithContainers(t *testing.T) {
+	net := NetworkInfo{Name: "my-network", Driver: "bridge", Containers: 2}
+	cat := CategorizeNetwork(net, nil)
+	if cat != CategoryDoNotTouch {
+		t.Errorf(
+			"network with containers should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
+	}
+}
+
+func TestCategorizeNetwork_Empty(t *testing.T) {
+	net := NetworkInfo{Name: "old-network", Driver: "bridge", Containers: 0}
+	cat := CategorizeNetwork(net, nil)
+	if cat != CategorySafe {
+		t.Errorf(
+			"empty user network should be CategorySafe, got %s",
+			CategoryLabel(cat),
+		)
+	}
+}
+
+func TestCategorizeNetwork_Protected(t *testing.T) {
+	net := NetworkInfo{
+		Name:       "certgames-network",
+		Driver:     "bridge",
+		Containers: 0,
+	}
+	cat := CategorizeNetwork(net, []string{"*certgames*"})
+	if cat != CategoryDoNotTouch {
+		t.Errorf(
+			"protected network should be CategoryDoNotTouch, got %s",
+			CategoryLabel(cat),
+		)
 	}
 }
 

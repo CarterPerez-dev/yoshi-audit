@@ -11,8 +11,11 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
+
+const noneTag = "<none>"
 
 type ImageInfo struct {
 	ID         string
@@ -45,8 +48,11 @@ type VolumeInfo struct {
 }
 
 type NetworkInfo struct {
-	ID   string
-	Name string
+	ID         string
+	Name       string
+	Driver     string
+	Scope      string
+	Containers int
 }
 
 type BuildCacheInfo struct {
@@ -58,7 +64,10 @@ type Client struct {
 }
 
 func NewClient() (*Client, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +87,8 @@ func (c *Client) ListImages() ([]ImageInfo, error) {
 
 	var images []ImageInfo
 	for _, s := range summaries {
-		repo := "<none>"
-		tag := "<none>"
+		repo := noneTag
+		tag := noneTag
 		if len(s.RepoTags) > 0 {
 			parts := strings.SplitN(s.RepoTags[0], ":", 2)
 			repo = parts[0]
@@ -88,7 +97,7 @@ func (c *Client) ListImages() ([]ImageInfo, error) {
 			}
 		}
 
-		dangling := repo == "<none>" && s.Containers == 0
+		dangling := repo == noneTag && s.Containers == 0
 
 		images = append(images, ImageInfo{
 			ID:         s.ID,
@@ -151,7 +160,7 @@ func (c *Client) ListVolumes() ([]VolumeInfo, error) {
 
 		var created time.Time
 		if v.CreatedAt != "" {
-			created, _ = time.Parse(time.RFC3339, v.CreatedAt)
+			created, _ = time.Parse(time.RFC3339, v.CreatedAt) //nolint:errcheck
 		}
 
 		volumes = append(volumes, VolumeInfo{
@@ -176,8 +185,8 @@ func (c *Client) GetDiskUsage() ([]ImageInfo, []ContainerInfo, []VolumeInfo, Bui
 		if s == nil {
 			continue
 		}
-		repo := "<none>"
-		tag := "<none>"
+		repo := noneTag
+		tag := noneTag
 		if len(s.RepoTags) > 0 {
 			parts := strings.SplitN(s.RepoTags[0], ":", 2)
 			repo = parts[0]
@@ -185,7 +194,7 @@ func (c *Client) GetDiskUsage() ([]ImageInfo, []ContainerInfo, []VolumeInfo, Bui
 				tag = parts[1]
 			}
 		}
-		dangling := repo == "<none>" && s.Containers == 0
+		dangling := repo == noneTag && s.Containers == 0
 		images = append(images, ImageInfo{
 			ID:         s.ID,
 			Repository: repo,
@@ -233,7 +242,7 @@ func (c *Client) GetDiskUsage() ([]ImageInfo, []ContainerInfo, []VolumeInfo, Bui
 		}
 		var created time.Time
 		if v.CreatedAt != "" {
-			created, _ = time.Parse(time.RFC3339, v.CreatedAt)
+			created, _ = time.Parse(time.RFC3339, v.CreatedAt) //nolint:errcheck
 		}
 		volumes = append(volumes, VolumeInfo{
 			Name:    v.Name,
@@ -250,18 +259,28 @@ func (c *Client) GetDiskUsage() ([]ImageInfo, []ContainerInfo, []VolumeInfo, Bui
 		}
 	}
 
-	return images, containers, volumes, BuildCacheInfo{TotalSize: cacheSize}, nil
+	return images, containers, volumes, BuildCacheInfo{
+		TotalSize: cacheSize,
+	}, nil
 }
 
 func (c *Client) RemoveImage(id string) error {
 	ctx := context.Background()
-	_, err := c.cli.ImageRemove(ctx, id, image.RemoveOptions{Force: true, PruneChildren: true})
+	_, err := c.cli.ImageRemove(
+		ctx,
+		id,
+		image.RemoveOptions{Force: true, PruneChildren: true},
+	)
 	return err
 }
 
 func (c *Client) RemoveContainer(id string) error {
 	ctx := context.Background()
-	return c.cli.ContainerRemove(ctx, id, container.RemoveOptions{Force: true, RemoveVolumes: true})
+	return c.cli.ContainerRemove(
+		ctx,
+		id,
+		container.RemoveOptions{Force: true, RemoveVolumes: true},
+	)
 }
 
 func (c *Client) RemoveVolume(name string) error {
@@ -269,11 +288,39 @@ func (c *Client) RemoveVolume(name string) error {
 	return c.cli.VolumeRemove(ctx, name, true)
 }
 
+func (c *Client) ListNetworks() ([]NetworkInfo, error) {
+	ctx := context.Background()
+	nets, err := c.cli.NetworkList(ctx, network.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var result []NetworkInfo
+	for _, n := range nets {
+		result = append(result, NetworkInfo{
+			ID:         n.ID,
+			Name:       n.Name,
+			Driver:     n.Driver,
+			Scope:      n.Scope,
+			Containers: len(n.Containers),
+		})
+	}
+	return result, nil
+}
+
+func (c *Client) RemoveNetwork(id string) error {
+	ctx := context.Background()
+	return c.cli.NetworkRemove(ctx, id)
+}
+
 func (c *Client) PruneBuildCache() (int64, error) {
 	ctx := context.Background()
-	report, err := c.cli.BuildCachePrune(ctx, types.BuildCachePruneOptions{All: true})
+	report, err := c.cli.BuildCachePrune(
+		ctx,
+		types.BuildCachePruneOptions{All: true},
+	)
 	if err != nil {
 		return 0, err
 	}
-	return int64(report.SpaceReclaimed), nil
+	return int64(report.SpaceReclaimed), nil //nolint:gosec
 }

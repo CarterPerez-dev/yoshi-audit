@@ -7,7 +7,13 @@ import (
 	"github.com/CarterPerez-dev/yoshi-audit/internal/config"
 )
 
-func ApplyPreset(preset config.PrunePreset, images []ImageInfo, volumes []VolumeInfo, protection *ProtectionEngine) (imageIDs []string, volumeNames []string) {
+func ApplyPreset(
+	preset config.PrunePreset,
+	images []ImageInfo,
+	volumes []VolumeInfo,
+	containers []ContainerInfo,
+	protection *ProtectionEngine,
+) (imageIDs, volumeNames, containerIDs []string) {
 	hasDangling := false
 	hasStopped := false
 	for _, p := range preset.Patterns {
@@ -18,12 +24,21 @@ func ApplyPreset(preset config.PrunePreset, images []ImageInfo, volumes []Volume
 			hasStopped = true
 		}
 	}
-	_ = hasStopped
 
 	if hasDangling {
 		for _, img := range images {
-			if img.Dangling && !protection.IsProtected(img.Repository) && !protection.IsProtected(img.ID) {
+			if img.Dangling && !protection.IsProtected(img.Repository) &&
+				!protection.IsProtected(img.ID) {
 				imageIDs = append(imageIDs, img.ID)
+			}
+		}
+	}
+
+	if hasStopped {
+		for _, ctr := range containers {
+			if !ctr.Running && !protection.IsProtected(ctr.Name) &&
+				!protection.IsProtected(ctr.Image) {
+				containerIDs = append(containerIDs, ctr.ID)
 			}
 		}
 	}
@@ -34,21 +49,29 @@ func ApplyPreset(preset config.PrunePreset, images []ImageInfo, volumes []Volume
 		}
 		pe := NewProtectionEngine([]string{p})
 		for _, img := range images {
-			if !img.Dangling && pe.MatchesPattern(img.Repository) && !protection.IsProtected(img.Repository) && !protection.IsProtected(img.ID) {
+			if !img.Dangling && pe.MatchesPattern(img.Repository) &&
+				!protection.IsProtected(img.Repository) &&
+				!protection.IsProtected(img.ID) {
 				imageIDs = append(imageIDs, img.ID)
 			}
 		}
 		for _, vol := range volumes {
-			if pe.MatchesPattern(vol.Name) && !protection.IsProtected(vol.Name) {
+			if pe.MatchesPattern(vol.Name) &&
+				!protection.IsProtected(vol.Name) {
 				volumeNames = append(volumeNames, vol.Name)
 			}
 		}
 	}
 
-	return imageIDs, volumeNames
+	return imageIDs, volumeNames, containerIDs
 }
 
-func EstimateReclaimable(images []ImageInfo, selectedImageIDs []string, volumes []VolumeInfo, selectedVolumeNames []string) int64 {
+func EstimateReclaimable(
+	images []ImageInfo,
+	selectedImageIDs []string,
+	volumes []VolumeInfo,
+	selectedVolumeNames []string,
+) int64 {
 	imageSet := make(map[string]bool, len(selectedImageIDs))
 	for _, id := range selectedImageIDs {
 		imageSet[id] = true

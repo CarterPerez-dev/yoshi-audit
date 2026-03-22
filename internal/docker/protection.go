@@ -45,12 +45,16 @@ func (pe *ProtectionEngine) MatchesPattern(name string) bool {
 }
 
 func matchGlob(pattern, name string) bool {
-	if strings.HasPrefix(pattern, "*") && strings.HasSuffix(pattern, "*") && !strings.Contains(pattern[1:len(pattern)-1], "*") {
+	if strings.HasPrefix(pattern, "*") && strings.HasSuffix(pattern, "*") &&
+		!strings.Contains(pattern[1:len(pattern)-1], "*") {
 		inner := pattern[1 : len(pattern)-1]
 		return strings.Contains(strings.ToLower(name), strings.ToLower(inner))
 	}
 
-	matched, err := filepath.Match(strings.ToLower(pattern), strings.ToLower(name))
+	matched, err := filepath.Match(
+		strings.ToLower(pattern),
+		strings.ToLower(name),
+	)
 	if err != nil {
 		return false
 	}
